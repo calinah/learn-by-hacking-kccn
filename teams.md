@@ -1,6 +1,7 @@
 Servers are named after your team name.
 First node for each team is the master, following two are worker nodes.
 
+```
 asteria-1 209.97.133.186
 asteria-2 178.128.165.148
 asteria-3 209.97.131.230
@@ -67,3 +68,4 @@ theia-3 209.97.190.49
 themis-1 206.189.119.122
 themis-2 206.189.123.114
 themis-3 206.189.119.47
+```
