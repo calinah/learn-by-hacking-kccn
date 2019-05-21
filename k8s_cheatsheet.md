@@ -38,10 +38,53 @@ This guide has been created to help engineers debug applications that are deploy
 | Command                                                      | Description                               |
 | ------------------------------------------------------------ | ----------------------------------------- |
 | `kubectl exec -ti <pod_name> -- /bin/sh -c  "curl -v <br /> telnet://<service_name>:<service-port>"` | testing TCP connectivity between services |
-|                                                              |                                           |
-|                                                              |                                           |
-|                                                              |                                           |
 
 ## Other resources
 
 <https://www.mankier.com/1/kubectl-auth-can-i> - check whether an action is allowed in your Kubernetes cluster
+
+Use `amicontained` to find out what container runtime you're using as well as what capabilities the your container has.
+
+```
+# Export the sha256sum for verification.
+$ export AMICONTAINED_SHA256="4e32545f68f25bcbcd4cce82743e916a054e1686df44fab68420fc9f94f80b21"
+
+# Download and check the sha256sum.
+$ curl -fSL "https://github.com/genuinetools/amicontained/releases/download/v0.4.7/amicontained-linux-amd64" -o "/usr/local/bin/amicontained" \
+	&& echo "${AMICONTAINED_SHA256}  /usr/local/bin/amicontained" | sha256sum -c - \
+	&& chmod a+x "/usr/local/bin/amicontained"
+
+$ echo "amicontained installed!"
+
+# Run it!
+$ amicontained -h
+```
+
+Add these functions to your environment so that you can scan for open ports
+
+``` sudo apt-get update
+sudo apt-get install nmap
+nmap-kube () 
+{ 
+nmap --open -T4 -A -v -Pn -p 443,2379,4194,6782-6784,6443,8443,8080,9099,10250,10255,10256 "${@}"
+}
+nmap-kube-discover () {
+local LOCAL_RANGE=$(ip a | awk '/eth0$/{print $2}' | sed 's,[0-9][0-9]*/.*,*,');                                                                  
+local SERVER_RANGES=" ";
+SERVER_RANGES+="10.0.0.1 ";
+SERVER_RANGES+="10.0.1.* ";
+SERVER_RANGES+="10.*.0-1.* ";
+nmap-kube ${SERVER_RANGES} "${LOCAL_RANGE}"
+}
+nmap-kube-discover
+```
+
+Useful commands for finding open ports:
+
+```
+command nmap -Pn -T4 -F --open kube-andy-1
+# scanning every port, more is open
+command nmap -Pn -T4 --open kube-andy-1 -p 0-65535
+command nmap -Pn -T4 --open kube-andy-1 -p 30081
+```
+
